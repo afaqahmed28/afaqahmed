@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import altair as alt
 
 st.set_page_config(page_title="Energy-based Abrasion Coefficient", layout="centered")
 
@@ -12,6 +12,7 @@ This app computes the **energy-based abrasion coefficient**
 \\[
 \\ln(m/m_0) = -a_E E
 \\]
+using cumulative energy.
 """
 )
 
@@ -44,10 +45,8 @@ def energy_per_rev(P, rpm):
 def fit_aE(E, m):
     E = np.asarray(E, float)
     m = np.asarray(m, float)
-
     y = np.log(m / m[0])
     E = E - E[0]
-
     return - (E @ y) / (E @ E)
 
 # ----------------------------
@@ -77,18 +76,29 @@ if st.button("Compute abrasion coefficient"):
         st.write(f"**a_E = {a_E*1e6:.4e} 1/MJ**")
 
         # ----------------------------
-        # PLOT
+        # PLOT: Altair
         # ----------------------------
         m_pred = m[0] * np.exp(-a_E * E)
 
-        fig, ax = plt.subplots()
-        ax.scatter(E, m, label="Measured")
-        ax.plot(E, m_pred, label="Predicted", linestyle="--")
-        ax.set_xlabel("Cumulative energy E (J)")
-        ax.set_ylabel("Mass")
-        ax.legend()
-        ax.set_title("Measured vs Predicted Mass")
-        st.pyplot(fig)
+        df_plot = pd.DataFrame({
+            "Energy (J)": np.concatenate([E, E]),
+            "Mass": np.concatenate([m, m_pred]),
+            "Type": ["Measured"]*len(E) + ["Predicted"]*len(E)
+        })
+
+        chart = alt.Chart(df_plot).mark_line(point=True).encode(
+            x="Energy (J)",
+            y="Mass",
+            color="Type:N"
+        ).properties(
+            width=600,
+            height=400,
+            title="Measured vs Predicted Mass"
+        )
+
+        st.altair_chart(chart, use_container_width=True)
 
     except Exception as e:
         st.error(f"Error: {e}")
+
+
