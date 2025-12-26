@@ -164,24 +164,27 @@ def get_mass_loss(mix_data, size, revolutions, initial_mass):
 # --------------------------
 # Streamlit UI
 # --------------------------
-st.title("Energy-Based Abrasion Coefficient Calculator")
+st.title("Abrasion Coefficient Calculator (Power + RPM)")
 
 mix = st.selectbox("Select Mix", options=list(mixes.keys()))
 mix_data = mixes[mix]
 
 size = st.selectbox("Select Size Range", options=SIZE_ORDER)
 initial_mass = st.number_input("Enter Initial Mass (g)", min_value=0.0, step=0.1)
-revs = st.number_input("Enter Revolutions", min_value=0, step=100)
-net_energy = st.number_input("Enter Net Energy Applied (Joules)", min_value=0.0, step=0.1)
+revs = st.number_input("Enter Total Revolutions", min_value=0, step=100)
+net_power = st.number_input("Enter Net Power (W)", min_value=0.0, step=0.1)
+rpm = st.number_input("Enter RPM", min_value=1, step=1)
 
 if st.button("Calculate"):
     loss = get_mass_loss(mix_data, size, revs, initial_mass)
     if loss is not None:
-        abrasion_coeff = loss / net_energy if net_energy > 0 else np.nan
+        # Calculate energy applied in Joules
+        time_s = (revs / rpm) * 60
+        energy = net_power * time_s
+        abrasion_coeff = loss / energy if energy > 0 else np.nan
         st.subheader("Results")
         st.write(f"**Mass Loss:** {loss:.3f} g")
+        st.write(f"**Energy Applied:** {energy:.3f} J")
         st.write(f"**Abrasion Coefficient:** {abrasion_coeff:.6f} g/J")
-
-
 
 
