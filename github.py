@@ -202,18 +202,15 @@ if st.button("Compute Mass Loss & Abrasion Coefficient"):
     total_mass_loss = 0
     for size in selected_sizes:
         ml = interpolate_mass_loss(mix_data, size, revolutions)  # mass loss in kg
-        observed_mass = mass_inputs[size] - ml                  # remaining mass
+        total_mass_loss += ml
         
         ab_coeff_j = compute_abrasion_coefficient(ml, mass_inputs[size], net_power, revolutions, rpm)
         ab_coeff_kj = ab_coeff_j * 1000       # per kJ
         ab_coeff_mj = ab_coeff_j * 1_000_000 # per MJ
         
-        total_mass_loss += ml
-        
         results.append({
             "Size": size,
             "Initial Mass (kg)": mass_inputs[size],
-            "Observed Mass (kg)": observed_mass,
             "Observed Mass Loss (kg)": ml,
             "Abrasion Coefficient (/J)": ab_coeff_j,
             "Abrasion Coefficient (/kJ)": ab_coeff_kj,
@@ -225,6 +222,7 @@ if st.button("Compute Mass Loss & Abrasion Coefficient"):
     
     st.subheader("Total Mass Loss Across Sizes")
     st.write(f"{total_mass_loss:.3f} kg")
+
 
 
 
