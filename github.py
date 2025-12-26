@@ -193,35 +193,42 @@ revolutions = st.number_input("Number of Revolutions", min_value=0, value=1000)
 net_power = st.number_input("Net Power (W)", min_value=0.0, value=500.0)
 rpm = st.number_input("RPM of Mill", min_value=1.0, value=30.0)
 
-# ------------------------------
-# Compute
-# ------------------------------
+for size in [c for c in df.columns if c != "Revolutions"]:
+    m = df[size].to_numpy(float)
+    m0 = float(m[0])
+    m_final = float(m[-1])
+    observed_mass_loss = m0 - m_final  # observed mass loss
 
-if st.button("Compute Mass Loss & Abrasion Coefficient"):
-    results = []
-    total_mass_loss = 0
-    for size in selected_sizes:
-        ml = interpolate_mass_loss(mix_data, size, revolutions)  # mass loss in kg
-        total_mass_loss += ml
-        
-        ab_coeff_j = compute_abrasion_coefficient(ml, mass_inputs[size], net_power, revolutions, rpm)
-        ab_coeff_kj = ab_coeff_j * 1000       # per kJ
-        ab_coeff_mj = ab_coeff_j * 1_000_000 # per MJ
-        
-        results.append({
-            "Size": size,
-            "Initial Mass (kg)": mass_inputs[size],
-            "Observed Mass Loss (kg)": ml,
-            "Abrasion Coefficient (/J)": ab_coeff_j,
-            "Abrasion Coefficient (/kJ)": ab_coeff_kj,
-            "Abrasion Coefficient (/MJ)": ab_coeff_mj
-        })
-    
-    st.subheader("Results per Particle Size")
-    st.dataframe(pd.DataFrame(results))
-    
-    st.subheader("Total Mass Loss Across Sizes")
-    st.write(f"{total_mass_loss:.3f} kg")
+    # 1) Fit directly in ENERGY domain: ln(m/m0) = - a_E * E
+    a_E, R2_E, nE = fit_forced_origin(E, m, use_prefix=True)
+
+    # 2) Reference: fit in REV domain + convert
+    a_rev, R2_rev, nR = fit_forced_origin(rev, m, use_prefix=True)
+    a_km  = a_rev * (1000.0 / dist_per_rev_m)
+    a_dkm = a_km / 3.0
+    a_E_conv = a_rev / ( (E[1]-E[0]) / (rev[1]-rev[0]) ) if (rev.size>1 and (rev[1]-rev[0])!=0) else np.nan
+
+    rows.append({
+        "Mix": mix_id,
+        "Size interval (mm)": size,
+        "m0": m0,
+        "Observed Mass Loss": observed_mass_loss,
+        "Total Mass Loss": m0 - m_final,  # total mass lost for clarity
+        # ENERGY-domain fit (primary)
+        "a_E [1/J]": a_E,
+        "a_kJ [1/kJ]": a_E * 1e3,
+        "a_MJ [1/MJ]": a_E * 1e6,
+        "R2 (energy fit)": R2_E,
+        "n_used (energy)": nE,
+        # for reference (distance/rev domain too)
+        "a_rev [1/rev]": a_rev,
+        "a_km [1/km]": a_km,
+        "a_d_km [1/km/diam]": a_dkm,
+        "R2 (rev fit)": R2_rev,
+        "a_E (from a_rev) [1/J]": a_E_conv,
+    })
+
+
 
 
 
