@@ -152,13 +152,14 @@ SIZE_ORDER = [
 # --------------------------
 # Helper Function
 # --------------------------
-def interpolate_mass_loss(mix_data, revolutions, initial_mass):
-    result = {}
+def get_mass_loss(mix_data, size, revolutions, initial_mass):
     df = pd.DataFrame(mix_data)
-    for size in SIZE_ORDER:
-        interp_value = np.interp(revolutions, df["Revolutions"], df[size])
-        result[size] = initial_mass - interp_value
-    return result
+    if size not in df.columns:
+        st.error("Invalid size selected")
+        return None
+    mass_at_rev = np.interp(revolutions, df["Revolutions"], df[size])
+    loss = initial_mass - mass_at_rev
+    return loss
 
 # --------------------------
 # Streamlit UI
@@ -168,24 +169,18 @@ st.title("Energy-Based Abrasion Coefficient Calculator")
 mix = st.selectbox("Select Mix", options=list(mixes.keys()))
 mix_data = mixes[mix]
 
-revs = st.number_input("Enter Revolutions", min_value=0, step=100)
+size = st.selectbox("Select Size Range", options=SIZE_ORDER)
 initial_mass = st.number_input("Enter Initial Mass (g)", min_value=0.0, step=0.1)
+revs = st.number_input("Enter Revolutions", min_value=0, step=100)
+net_energy = st.number_input("Enter Net Energy Applied (Joules)", min_value=0.0, step=0.1)
 
-if st.button("Calculate Mass Loss"):
-    mass_loss = interpolate_mass_loss(mix_data, revs, initial_mass)
-    
-    st.subheader("Predicted Mass Loss for Each Size Fraction")
-    df_mass_loss = pd.DataFrame(mass_loss, index=[0]).T.rename(columns={0:"Mass Loss (g)"})
-    st.table(df_mass_loss)
-    
-    st.subheader("Mass Loss vs Particle Size")
-    chart_data = df_mass_loss.reset_index().rename(columns={"index":"Size", "Mass Loss (g)":"Mass Loss"})
-    chart = alt.Chart(chart_data).mark_bar().encode(
-        x=alt.X("Size:N", sort=SIZE_ORDER),
-        y="Mass Loss:Q",
-        tooltip=["Size", "Mass Loss"]
-    )
-    st.altair_chart(chart, use_container_width=True)
+if st.button("Calculate"):
+    loss = get_mass_loss(mix_data, size, revs, initial_mass)
+    if loss is not None:
+        abrasion_coeff = loss / net_energy if net_energy > 0 else np.nan
+        st.subheader("Results")
+        st.write(f"**Mass Loss:** {loss:.3f} g")
+        st.write(f"**Abrasion Coefficient:** {abrasion_coeff:.6f} g/J")
 
 
 
