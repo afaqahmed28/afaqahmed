@@ -149,42 +149,66 @@ SIZE_ORDER = [
     "5.66 - 8.00 mm","4.00 - 5.66 mm","2.83 - 4.00 mm","2.00 - 2.83 mm"
 ]
 
-# --------------------------
-# Helper Function
-# --------------------------
-def get_mass_loss(mix_data, size, revolutions, initial_mass):
-    df = pd.DataFrame(mix_data)
-    if size not in df.columns:
-        st.error("Invalid size selected")
-        return None
-    mass_at_rev = np.interp(revolutions, df["Revolutions"], df[size])
-    loss = initial_mass - mass_at_rev
-    return loss
+# ------------------------------
+# FUNCTIONS
+# ------------------------------
 
-# --------------------------
-# Streamlit UI
-# --------------------------
-st.title("Abrasion Coefficient Calculator (Power + RPM)")
+def interpolate_mass_loss(mix_data, size, revolutions):
+    """Interpolate mass loss from the dataset for a given size and revolutions."""
+    rev = np.array(mix_data["Revolutions"])
+    mass_loss = np.array(mix_data[size])
+    return np.interp(revolutions, rev, mass_loss)
 
-mix = st.selectbox("Select Mix", options=list(mixes.keys()))
-mix_data = mixes[mix]
+def compute_abrasion_coefficient(mass_loss, initial_mass, net_power, revolutions, rpm):
+    """
+    Compute abrasion coefficient per joule (or per unit energy)
+    Energy = Power x Time
+    """
+    time_seconds = revolutions / rpm * 60  # Revolutions / revs per minute -> minutes -> seconds
+    energy_joules = net_power * time_seconds
+    return (mass_loss / initial_mass) / energy_joules
 
-size = st.selectbox("Select Size Range", options=SIZE_ORDER)
-initial_mass = st.number_input("Enter Initial Mass (g)", min_value=0.0, step=0.1)
-revs = st.number_input("Enter Total Revolutions", min_value=0, step=100)
-net_power = st.number_input("Enter Net Power (W)", min_value=0.0, step=0.1)
-rpm = st.number_input("Enter RPM", min_value=1, step=1)
+# ------------------------------
+# STREAMLIT APP
+# ------------------------------
 
-if st.button("Calculate"):
-    loss = get_mass_loss(mix_data, size, revs, initial_mass)
-    if loss is not None:
-        # Calculate energy applied in Joules
-        time_s = (revs / rpm) * 60
-        energy = net_power * time_s
-        abrasion_coeff = loss / energy if energy > 0 else np.nan
-        st.subheader("Results")
-        st.write(f"**Mass Loss:** {loss:.3f} g")
-        st.write(f"**Energy Applied:** {energy:.3f} J")
-        st.write(f"**Abrasion Coefficient:** {abrasion_coeff:.6f} g/J")
+st.title("Particle Abrasion Coefficient Calculator")
 
+# Mix selection
+mix_id = st.selectbox("Select Mix", list(mixes.keys()))
+mix_data = mixes[mix_id]
 
+st.write("Available particle sizes:", SIZE_ORDER)
+
+# Input multiple sizes
+selected_sizes = st.multiselect("Select Particle Sizes", SIZE_ORDER, default=[SIZE_ORDER[0]])
+
+# Input initial mass per size
+mass_inputs = {}
+for s in selected_sizes:
+    mass_inputs[s] = st.number_input(f"Initial Mass for size {s} (kg)", min_value=0.0, value=10.0)
+
+# Revolutions, Net Power, RPM
+revolutions = st.number_input("Number of Revolutions", min_value=0, value=1000)
+net_power = st.number_input("Net Power (W)", min_value=0.0, value=500.0)
+rpm = st.number_input("RPM of Mill", min_value=1.0, value=30.0)
+
+# Compute
+if st.button("Compute Mass Loss & Abrasion Coefficient"):
+    results = []
+    total_mass_loss = 0
+    for size in selected_sizes:
+        ml = interpolate_mass_loss(mix_data, size, revolutions)
+        ab_coeff = compute_abrasion_coefficient(ml, mass_inputs[size], net_power, revolutions, rpm)
+        total_mass_loss += ml
+        results.append({
+            "Size": size,
+            "Mass Loss (kg)": ml,
+            "Abrasion Coefficient (/J)": ab_coeff
+        })
+    
+    st.subheader("Results per Particle Size")
+    st.dataframe(pd.DataFrame(results))
+    
+    st.subheader("Total Mass Loss")
+    st.write(f"{total_mass_loss:.3f} kg")
