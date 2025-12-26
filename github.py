@@ -193,22 +193,35 @@ revolutions = st.number_input("Number of Revolutions", min_value=0, value=1000)
 net_power = st.number_input("Net Power (W)", min_value=0.0, value=500.0)
 rpm = st.number_input("RPM of Mill", min_value=1.0, value=30.0)
 
+# ------------------------------
 # Compute
+# ------------------------------
+
 if st.button("Compute Mass Loss & Abrasion Coefficient"):
     results = []
-    total_mass_loss = 0
+    total_observed_mass = 0
     for size in selected_sizes:
-        ml = interpolate_mass_loss(mix_data, size, revolutions)
-        ab_coeff = compute_abrasion_coefficient(ml, mass_inputs[size], net_power, revolutions, rpm)
-        total_mass_loss += ml
+        ml = interpolate_mass_loss(mix_data, size, revolutions)  # mass loss in kg
+        ab_coeff_j = compute_abrasion_coefficient(ml, mass_inputs[size], net_power, revolutions, rpm)
+        ab_coeff_kj = ab_coeff_j * 1000       # per kJ
+        ab_coeff_mj = ab_coeff_j * 1_000_000 # per MJ
+        observed_mass = mass_inputs[size] - ml
+        
+        total_observed_mass += observed_mass
+        
         results.append({
             "Size": size,
+            "Initial Mass (kg)": mass_inputs[size],
             "Mass Loss (kg)": ml,
-            "Abrasion Coefficient (/J)": ab_coeff
+            "Observed Mass (kg)": observed_mass,
+            "Abrasion Coefficient (/J)": ab_coeff_j,
+            "Abrasion Coefficient (/kJ)": ab_coeff_kj,
+            "Abrasion Coefficient (/MJ)": ab_coeff_mj
         })
     
     st.subheader("Results per Particle Size")
     st.dataframe(pd.DataFrame(results))
     
-    st.subheader("Total Mass Loss")
-    st.write(f"{total_mass_loss:.3f} kg")
+    st.subheader("Total Observed Mass Across Sizes")
+    st.write(f"{total_observed_mass:.3f} kg")
+
