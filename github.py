@@ -1,24 +1,12 @@
+# app.py
 import streamlit as st
-import numpy as np
 import pandas as pd
+import numpy as np
 import altair as alt
 
-st.set_page_config(page_title="Energy-based Abrasion Calculator", layout="centered")
-st.title("Energy-based Abrasion Coefficient & Mass Prediction")
-
-st.markdown("""
-This app predicts **mass loss** using the **energy-based abrasion coefficient**:
-
-\\[
-m(E) = m_0 \cdot \exp(-a_E \cdot E)
-\\]
-
-Select a mix and size fraction, enter initial mass and target revolutions to compute predicted mass and mass loss.
-""")
-
-# ----------------------------
-# Dataset
-# ----------------------------
+# --------------------------
+# Mix Data
+# --------------------------
 data_1 = {
     "Revolutions": [0, 3400, 6800, 10300, 13800, 17400, 21000, 28700],
     "90.5 - 128 mm": [35.5, 28.2, 25.1, 24.9, 24.7, 22.6, 20.2, 18.6],
@@ -34,6 +22,7 @@ data_1 = {
     "2.83 - 4.00 mm": [21.4, 17.2, 14.5, 12.0, 10.6, 9.2, 8.2, 6.5],
     "2.00 - 2.83 mm": [15.9, 11.5, 9.1, 7.1, 6.0, 5.1, 4.5, 3.3],
 }
+
 data_2 = {
     "Revolutions": [0, 10600, 21800, 42000, 71500],
     "90.5 - 128 mm": [3.8, 2.7, 2.6, 2.6, 2.5],
@@ -49,6 +38,7 @@ data_2 = {
     "2.83 - 4.00 mm": [9.9, 9.8, 9.7, 9.1, 8.1],
     "2.00 - 2.83 mm": [3.4, 3.5, 3.1, 3.0, 3.1],
 }
+
 data_3 = {
     "Revolutions": [0, 3700, 7400, 11100, 14900, 23000, 39000, 61000],
     "90.5 - 128 mm": [23.1, 22.8, 20.8, 19.0, 18.9, 18.7, 18.2, 16.3],
@@ -64,6 +54,7 @@ data_3 = {
     "2.83 - 4.00 mm": [5.5, 4.8, 4.6, 4.3, 4.0, 3.6, 3.1, 2.5],
     "2.00 - 2.83 mm": [2.9, 2.3, 2.0, 1.8, 1.7, 1.4, 1.2, 1.0],
 }
+
 data_4 = {
     "Revolutions": [0, 3600, 7200, 10900, 14600, 22600, 40400, 63300],
     "90.5 - 128 mm": [21.1, 20.9, 20.7, 18.3, 18.2, 17.7, 13.5, 9.8],
@@ -79,6 +70,7 @@ data_4 = {
     "2.83 - 4.00 mm": [6.6, 5.7, 5.3, 5.0, 4.6, 4.1, 3.4, 2.7],
     "2.00 - 2.83 mm": [4.7, 3.7, 3.2, 2.8, 2.5, 2.1, 1.4, 1.1],
 }
+
 data_5 = {
     "Revolutions": [0, 710, 2340, 6600, 12600],
     "90.5 - 128 mm": [27.4, 25.6, 23.5, 21.6, 19.5],
@@ -94,6 +86,7 @@ data_5 = {
     "2.83 - 4.00 mm": [22.8, 19.2, 17.1, 13.6, 10.2],
     "2.00 - 2.83 mm": [15.6, 14.0, 11.8, 9.1, 6.4],
 }
+
 data_6 = {
     "Revolutions": [0, 13000, 23000, 33500],
     "90.5 - 128 mm": [11.7, 10.9, 8.8, 8.6],
@@ -109,6 +102,7 @@ data_6 = {
     "2.83 - 4.00 mm": [3.8, 0.5, 0.5, 0.5],
     "2.00 - 2.83 mm": [2.0, 0.2, 0.1, 0.1],
 }
+
 data_7 = {
     "Revolutions": [0, 10000, 18500, 27500],
     "90.5 - 128 mm": [11.7, 11.4, 9.9, 9.5],
@@ -124,6 +118,7 @@ data_7 = {
     "2.83 - 4.00 mm": [3.8, 1.9, 1.7, 0.6],
     "2.00 - 2.83 mm": [2.0, 0.7, 0.6, 0.2],
 }
+
 data_8 = {
     "Revolutions": [0, 12000, 22000, 30500],
     "90.5 - 128 mm": [11.7, 10.9, 10.9, 9.1],
@@ -140,8 +135,13 @@ data_8 = {
     "2.00 - 2.83 mm": [2.0, 1.2, 0.7, 0.3],
 }
 
-mixes = {1: data_1, 2: data_2, 3: data_3, 4: data_4,
-         5: data_5, 6: data_6, 7: data_7, 8: data_8}
+# --------------------------
+# Mix Dictionary & Size Order
+# --------------------------
+mixes = {
+    1: data_1, 2: data_2, 3: data_3, 4: data_4,
+    5: data_5, 6: data_6, 7: data_7, 8: data_8
+}
 
 SIZE_ORDER = [
     "90.5 - 128 mm","64.0 - 90.5 mm","45.3 - 64.0 mm","32.0 - 45.3 mm",
@@ -149,98 +149,44 @@ SIZE_ORDER = [
     "5.66 - 8.00 mm","4.00 - 5.66 mm","2.83 - 4.00 mm","2.00 - 2.83 mm"
 ]
 
-# ----------------------------
-# Helper functions
-# ----------------------------
-def energy_per_rev(P, rpm):
-    return 60.0 * P / rpm
+# --------------------------
+# Helper Function
+# --------------------------
+def interpolate_mass_loss(mix_data, revolutions, initial_mass):
+    result = {}
+    df = pd.DataFrame(mix_data)
+    for size in SIZE_ORDER:
+        interp_value = np.interp(revolutions, df["Revolutions"], df[size])
+        result[size] = initial_mass - interp_value
+    return result
 
-def fit_aE(E, m):
-    E = np.asarray(E, float)
-    m = np.asarray(m, float)
-    y = np.log(m / m[0])
-    E = E - E[0]
-    return - (E @ y) / (E @ E)
+# --------------------------
+# Streamlit UI
+# --------------------------
+st.title("Energy-Based Abrasion Coefficient Calculator")
 
-def cumulative_energy(E_per_rev, rev):
-    return E_per_rev * np.asarray(rev, float)
+mix = st.selectbox("Select Mix", options=list(mixes.keys()))
+mix_data = mixes[mix]
 
-# ----------------------------
-# User Inputs
-# ----------------------------
-st.header("Operating conditions")
-RPM = st.number_input("Mill speed (RPM)", value=32.0)
-P_NET_W = st.number_input("Net power (W)", value=900.0)
+revs = st.number_input("Enter Revolutions", min_value=0, step=100)
+initial_mass = st.number_input("Enter Initial Mass (g)", min_value=0.0, step=0.1)
 
-st.header("Select dataset")
-mix_id = st.selectbox("Select Mix", options=list(mixes.keys()))
-df = pd.DataFrame(mixes[mix_id])
-size = st.selectbox("Select size fraction", options=[c for c in df.columns if c != "Revolutions"])
+if st.button("Calculate Mass Loss"):
+    mass_loss = interpolate_mass_loss(mix_data, revs, initial_mass)
+    
+    st.subheader("Predicted Mass Loss for Each Size Fraction")
+    df_mass_loss = pd.DataFrame(mass_loss, index=[0]).T.rename(columns={0:"Mass Loss (g)"})
+    st.table(df_mass_loss)
+    
+    st.subheader("Mass Loss vs Particle Size")
+    chart_data = df_mass_loss.reset_index().rename(columns={"index":"Size", "Mass Loss (g)":"Mass Loss"})
+    chart = alt.Chart(chart_data).mark_bar().encode(
+        x=alt.X("Size:N", sort=SIZE_ORDER),
+        y="Mass Loss:Q",
+        tooltip=["Size", "Mass Loss"]
+    )
+    st.altair_chart(chart, use_container_width=True)
 
-st.header("Predict mass at target revolution")
-m0_input = st.number_input("Enter initial mass m0 (kg)", value=float(df[size].iloc[0]))
-rev_target = st.number_input("Target revolution", min_value=0, value=int(df["Revolutions"].iloc[-1]))
-
-# ----------------------------
-# Compute a_E from data
-# ----------------------------
-rev = df["Revolutions"].values
-m_measured = df[size].values
-E_axis = cumulative_energy(energy_per_rev(P_NET_W, RPM), rev)
-a_E = fit_aE(E_axis, m_measured)
-
-# ----------------------------
-# Predict mass
-# ----------------------------
-E_target = energy_per_rev(P_NET_W, RPM) * rev_target
-m_pred_target = m0_input * np.exp(-a_E * E_target)
-mass_loss = m0_input - m_pred_target
-
-# ----------------------------
-# Display results
-# ----------------------------
-st.subheader("Results")
-st.write(f"Energy-based abrasion coefficient a_E = **{a_E:.4e} 1/J**")
-st.write(f"Predicted mass at {rev_target} rev: **{m_pred_target:.2f} kg**")
-st.write(f"Mass loss: **{mass_loss:.2f} kg**")
-
-# ----------------------------
-# Plot measured vs predicted
-# ----------------------------
-m_pred_full = m0_input * np.exp(-a_E * E_axis)
-
-df_plot = pd.DataFrame({
-    "Energy (J)": np.concatenate([E_axis, E_axis]),
-    "Mass (kg)": np.concatenate([m_measured, m_pred_full]),
-    "Type": ["Measured"]*len(E_axis) + ["Predicted"]*len(E_axis)
-})
-
-chart = alt.Chart(df_plot).mark_line(point=True).encode(
-    x="Energy (J)",
-    y="Mass (kg)",
-    color="Type:N"
-).properties(
-    width=600,
-    height=400,
-    title=f"Measured vs Predicted Mass for Mix {mix_id}, Size {size}"
-)
-st.altair_chart(chart, use_container_width=True)
-
-# ----------------------------
-# Plot relative error
-# ----------------------------
-rel_error = np.abs((m_pred_full - m_measured)/m_measured)*100
-df_error = pd.DataFrame({"Energy (J)": E_axis, "Relative Error (%)": rel_error})
-
-error_chart = alt.Chart(df_error).mark_line(point=True, color='red').encode(
-    x="Energy (J)",
-    y="Relative Error (%)"
-).properties(
-    width=600,
-    height=300,
-    title="Relative Error (%) between Measured and Predicted Mass"
-)
-st.altair_chart(error_chart, use_container_width=True)
 
 
 
